@@ -1,58 +1,58 @@
-// src/Minesweeper.js
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
+// The main Minesweeper game component, handling game state and API calls.
 function Minesweeper({ balance, setBalance }) {
   const [clicks, setClicks] = useState(0);
   const [grid, setGrid] = useState([]);
   const [gameOver, setGameOver] = useState(true);
 
-  useEffect(() => {
-    if (clicks === 0 && !gameOver) {
-      setGameOver(true);
-    }
-  }, [clicks, gameOver]);
-
-  const startNewGame = () => {
+  // Starts a new game by making a POST request to the backend with the current balance.
+  const startNewGame = async () => {
     if (balance >= 5) {
-      setBalance(balance - 5);
-      setClicks(3);
-      setGameOver(false);
-      const newGrid = [];
-      for (let i = 0; i < 9; i++) {
-        newGrid.push({ clicked: false, value: '' });
+      try {
+        // POST request to start a new game, sending the current balance to the backend.
+        const response = await axios.post('http://localhost:5000/minesweeper/start', { balance });
+        const { grid: newGrid, newBalance, clicks: newClicks } = response.data;
+        setBalance(newBalance);
+        setClicks(newClicks);
+        setGameOver(false);
+        setGrid(newGrid);
+      } catch (error) {
+        console.error('Error starting new game:', error);
+        alert('An error occurred. Please try again.');
       }
-      const bombIndexes = [];
-      while (bombIndexes.length < 2) {
-        const randomIndex = Math.floor(Math.random() * 9);
-        if (!bombIndexes.includes(randomIndex)) {
-          bombIndexes.push(randomIndex);
-          newGrid[randomIndex].value = 'bomb';
-        }
-      }
-      const moneyIndexes = [];
-      while (moneyIndexes.length < 5) {
-        const randomIndex = Math.floor(Math.random() * 9);
-        if (!bombIndexes.includes(randomIndex) && !moneyIndexes.includes(randomIndex)) {
-          moneyIndexes.push(randomIndex);
-          newGrid[randomIndex].value = 'money';
-        }
-      }
-      setGrid(newGrid);
+    } else {
+      alert('Insufficient balance');
     }
   };
 
-  const handleClick = (index) => {
+  // Handles a cell click by making a POST request to the backend with the current game state and click index.
+  const handleClick = async (index) => {
     if (!gameOver && clicks > 0 && !grid[index].clicked) {
-      const newGrid = [...grid];
-      newGrid[index].clicked = true;
-      setGrid(newGrid);
-      setClicks(clicks - 1);
-      if (grid[index].value === 'money') {
-        setBalance(balance + 10);
-      } else if (grid[index].value === 'bomb') {
-        setBalance(balance - 20);
-        setGameOver(true);
+      try {
+        // POST request to handle a cell click, sending the current balance, grid, clicks, and click index to the backend.
+        const response = await axios.post('http://localhost:5000/minesweeper/click', {
+          balance,
+          grid,
+          clicks,
+          index
+        });
+        const { grid: newGrid, newBalance, clicks: newClicks, gameOver: newGameOver } = response.data;
+        setGrid(newGrid);
+        setBalance(newBalance);
+        setClicks(newClicks);
+        setGameOver(newGameOver);
+
+        if (newGrid[index].value === 'bomb') {
+          alert('You hit a bomb! Game over.');
+        } else if (newGameOver) {
+          alert('Game over! No more clicks remaining.');
+        }
+      } catch (error) {
+        console.error('Error clicking cell:', error);
+        alert('An error occurred. Please try again.');
       }
     }
   };

@@ -1,12 +1,14 @@
-// src/RouletteTable.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
+// The main RouletteTable component, handling game state and API calls.
 function RouletteTable({ balance, setBalance }) {
   const [bets, setBets] = useState({});
   const [selectedNumber, setSelectedNumber] = useState(null);
   const [isSpinning, setIsSpinning] = useState(false);
   const [winningNumber, setWinningNumber] = useState(null);
+  const [winningColor, setWinningColor] = useState(null);
   const [winAmount, setWinAmount] = useState(0);
   const [numbers] = useState([
     { number: 0, color: 'green' },
@@ -24,6 +26,7 @@ function RouletteTable({ balance, setBalance }) {
     { number: 3, color: 'red' }, { number: 26, color: 'black' }, { number: 19, color: 'red' }
   ]);
 
+  // Simulates the roulette wheel spinning by rapidly changing the selected number.
   useEffect(() => {
     if (isSpinning) {
       let counter = 0;
@@ -33,36 +36,13 @@ function RouletteTable({ balance, setBalance }) {
         if (counter >= 20) {
           clearInterval(interval);
           setIsSpinning(false);
-          const winningNumber = numbers[Math.floor(Math.random() * numbers.length)].number;
-          setWinningNumber(winningNumber);
-          let newBalance = balance;
-          let winAmount = 0;
-          Object.keys(bets).forEach(bet => {
-            if (bet === 'even' && winningNumber % 2 === 0) {
-              newBalance += bets[bet] * 2;
-              winAmount += bets[bet];
-            } else if (bet === 'odd' && winningNumber % 2 !== 0) {
-              newBalance += bets[bet] * 2;
-              winAmount += bets[bet];
-            } else if (bet === 'red' && numbers.find(n => n.number === winningNumber).color === 'red') {
-              newBalance += bets[bet] * 2;
-              winAmount += bets[bet];
-            } else if (bet === 'black' && numbers.find(n => n.number === winningNumber).color === 'black') {
-              newBalance += bets[bet] * 2;
-              winAmount += bets[bet];
-            } else if (bet === winningNumber.toString()) {
-              newBalance += bets[bet] * 36;
-              winAmount += bets[bet];
-            }
-          });
-          setBalance(newBalance);
-          setWinAmount(winAmount);
-          setBets({});
+          handleSpin();
         }
       }, 250);
     }
-  }, [isSpinning, numbers, balance, bets]);
+  }, [isSpinning, numbers]);
 
+  // Places a bet by deducting the bet amount from the balance and updating the bets state.
   const handleBet = (type, amount) => {
     if (balance >= amount) {
       setBets(prevBets => ({ ...prevBets, [type]: (prevBets[type] || 0) + amount }));
@@ -70,10 +50,31 @@ function RouletteTable({ balance, setBalance }) {
     }
   };
 
-  const handleSpin = () => {
+  // Handles the spin by making a POST request to the backend with the current bets and balance.
+  const handleSpin = async () => {
+    try {
+      // POST request to handle the spin, sending the current bets and balance to the backend.
+      const response = await axios.post('http://localhost:5000/spin', {
+        bets,
+        balance
+      });
+      const { winningNumber, winningColor, newBalance, winAmount } = response.data;
+      setWinningNumber(winningNumber);
+      setWinningColor(winningColor);
+      setBalance(newBalance);
+      setWinAmount(winAmount);
+      setBets({});
+    } catch (error) {
+      console.error('Error spinning the wheel:', error);
+    }
+  };
+
+  // Starts the wheel spinning.
+  const startSpin = () => {
     setIsSpinning(true);
   };
 
+  // Calculates the total bet amount for a given number.
   const getBetAmount = (number) => {
     let amount = 0;
     if (bets['even'] && number % 2 === 0) {
@@ -113,13 +114,14 @@ function RouletteTable({ balance, setBalance }) {
           </div>
         ))}
       </div>
-      <button onClick={handleSpin}>Spin</button>
+      <button onClick={startSpin}>Spin</button>
       {isSpinning && (
         <div style={{ fontSize: 48, fontWeight: 'bold', marginTop: 20 }}>{selectedNumber}</div>
       )}
       {winningNumber !== null && (
         <div>
           <div style={{ fontSize: 48, fontWeight: 'bold', marginTop: 20 }}>Winning Number: {winningNumber}</div>
+          <div style={{ fontSize: 24, fontWeight: 'bold', color: winningColor }}>{winningColor.toUpperCase()}</div>
           {winAmount > 0 ? (
             <div style={{ fontSize: 24, color: 'green' }}>You won ${winAmount}!</div>
           ) : (

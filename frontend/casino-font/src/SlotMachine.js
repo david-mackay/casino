@@ -1,6 +1,6 @@
-// src/SlotMachine.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 function SlotMachine({ balance, setBalance }) {
   const [slot1, setSlot1] = useState('');
@@ -13,7 +13,6 @@ function SlotMachine({ balance, setBalance }) {
   const [bottomSlot2, setBottomSlot2] = useState('');
   const [bottomSlot3, setBottomSlot3] = useState('');
   const [isSpinning, setIsSpinning] = useState(false);
-  const winPercentage = 0.05; // 5% chance of winning
   const emojis = ['🍉', '🍊', '🍇', '🍎', '🥝', '🍓', '🥭', '🍑', '🍒', '🍈'];
 
   useEffect(() => {
@@ -37,7 +36,7 @@ function SlotMachine({ balance, setBalance }) {
     return emojis[Math.floor(Math.random() * emojis.length)];
   };
 
-  const spin = () => {
+  const spin = async () => {
     if (balance < 1) {
       alert('Insufficient balance');
       return;
@@ -46,33 +45,33 @@ function SlotMachine({ balance, setBalance }) {
     setIsSpinning(true);
     setBalance(balance - 1);
 
-    setTimeout(() => {
-      setIsSpinning(false);
-      const hasWon = Math.random() < winPercentage;
-      if (hasWon) {
-        const winningEmoji = getRandomEmoji();
-        setSlot1(winningEmoji);
-        setSlot2(winningEmoji);
-        setSlot3(winningEmoji);
-        setBalance(balance => balance + 1000);
-      } else {
-        setSlot1(getRandomEmoji());
-        setSlot2(getRandomEmoji());
-        while (true) {
-          const slot3Emoji = getRandomEmoji();
-          if (slot3Emoji !== slot1 && slot3Emoji !== slot2) {
-            setSlot3(slot3Emoji);
-            break;
-          }
+    try {
+      const response = await axios.post('http://localhost:5000/slot', { balance });
+      const result = response.data;
+
+      setTimeout(() => {
+        setIsSpinning(false);
+        setSlot1(result.slot1);
+        setSlot2(result.slot2);
+        setSlot3(result.slot3);
+        setTopSlot1(result.topSlot1);
+        setTopSlot2(result.topSlot2);
+        setTopSlot3(result.topSlot3);
+        setBottomSlot1(result.bottomSlot1);
+        setBottomSlot2(result.bottomSlot2);
+        setBottomSlot3(result.bottomSlot3);
+        setBalance(result.newBalance);
+
+        if (result.hasWon) {
+          alert('Congratulations! You won $1000!');
         }
-      }
-      setTopSlot1(getRandomEmoji());
-      setTopSlot2(getRandomEmoji());
-      setTopSlot3(getRandomEmoji());
-      setBottomSlot1(getRandomEmoji());
-      setBottomSlot2(getRandomEmoji());
-      setBottomSlot3(getRandomEmoji());
-    }, 2000);
+      }, 2000);
+    } catch (error) {
+      console.error('Error spinning the slot machine:', error);
+      setIsSpinning(false);
+      setBalance(balance + 1);  // Refund the spin cost
+      alert('An error occurred. Please try again.');
+    }
   };
 
   return (
